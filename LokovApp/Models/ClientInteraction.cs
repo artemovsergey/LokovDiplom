@@ -3,7 +3,7 @@ namespace LokovApp.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-public class Comment
+public class ClientInteraction
 {
     [Key]
     public Guid Id { get; set; }
@@ -13,9 +13,15 @@ public class Comment
     [ForeignKey("ClientId")]
     public Client Client { get; set; } = null!;
 
-    [Required]
+    public InteractionType Type { get; set; }
+
     [StringLength(2000)]
-    public string Content { get; set; } = string.Empty;
+    public string? Description { get; set; }
+
+    [StringLength(1000)]
+    public string? Result { get; set; }
+
+    public DateTime InteractionDate { get; set; }
 
     public Guid CreatedById { get; set; }
 
@@ -25,4 +31,13 @@ public class Comment
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public bool IsDeleted { get; set; } = false;
+}
+
+public enum InteractionType
+{
+    Call, // Звонок
+    Meeting, // Встреча
+    Email, // Email
+    Message, // Сообщение
+    Comment, // Комментарий
 }

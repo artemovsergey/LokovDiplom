@@ -2,73 +2,102 @@ using LokovApp.DTOs;
 using LokovApp.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace LokovApp.Controllers
+namespace LokovApp.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public class ClientsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class ClientsController : ControllerBase
+    private readonly IClientService _clientService;
+    private readonly IProjectService _projectService;
+
+    public ClientsController(IClientService clientService, IProjectService projectService)
     {
-        private readonly IClientService _clientService;
+        _clientService = clientService;
+        _projectService = projectService;
+    }
 
-        public ClientsController(IClientService clientService)
+    [HttpGet]
+    public async Task<ActionResult<PagedResponse<ClientResponseDto>>> GetClients(
+        [FromQuery] ClientFilterDto filter
+    )
+    {
+        var clients = await _clientService.GetClientsAsync(filter);
+        return Ok(clients);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ClientResponseDto>> GetClient(Guid id)
+    {
+        var client = await _clientService.GetClientByIdAsync(id);
+        if (client == null)
+            return NotFound(new { message = "Клиент не найден" });
+
+        return Ok(client);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<ClientResponseDto>> CreateClient(CreateClientDto dto)
+    {
+        try
         {
-            _clientService = clientService;
+            var client = await _clientService.CreateClientAsync(dto);
+            return CreatedAtAction(nameof(GetClient), new { id = client.Id }, client);
         }
-
-        [HttpGet]
-        public async Task<ActionResult<List<ClientResponseDto>>> GetClients(
-            [FromQuery] string? search,
-            [FromQuery] string? status
-        )
+        catch (Exception ex)
         {
-            var clients = await _clientService.GetAllClientsAsync(search, status);
-            return Ok(clients);
+            return BadRequest(new { message = "Ошибка при создании клиента", error = ex.Message });
         }
+    }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ClientResponseDto>> GetClient(int id)
-        {
-            var client = await _clientService.GetClientByIdAsync(id);
-            if (client == null)
-                return NotFound(new { message = "Клиент не найден" });
+    [HttpPut("{id}")]
+    public async Task<ActionResult<ClientResponseDto>> UpdateClient(Guid id, UpdateClientDto dto)
+    {
+        var client = await _clientService.UpdateClientAsync(id, dto);
+        if (client == null)
+            return NotFound(new { message = "Клиент не найден" });
 
-            return Ok(client);
-        }
+        return Ok(client);
+    }
 
-        [HttpPost]
-        public async Task<ActionResult<ClientResponseDto>> CreateClient(CreateClientDto dto)
-        {
-            try
-            {
-                var client = await _clientService.CreateClientAsync(dto);
-                return CreatedAtAction(nameof(GetClient), new { id = client.Id }, client);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(
-                    new { message = "Ошибка при создании клиента", error = ex.Message }
-                );
-            }
-        }
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> DeleteClient(Guid id)
+    {
+        var result = await _clientService.DeleteClientAsync(id);
+        if (!result)
+            return NotFound(new { message = "Клиент не найден" });
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult<ClientResponseDto>> UpdateClient(int id, UpdateClientDto dto)
-        {
-            var client = await _clientService.UpdateClientAsync(id, dto);
-            if (client == null)
-                return NotFound(new { message = "Клиент не найден" });
+        return NoContent();
+    }
 
-            return Ok(client);
-        }
+    [HttpPatch("{id}/archive")]
+    public async Task<ActionResult> ArchiveClient(Guid id)
+    {
+        var result = await _clientService.ArchiveClientAsync(id);
+        if (!result)
+            return NotFound(new { message = "Клиент не найден" });
 
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteClient(int id)
-        {
-            var result = await _clientService.DeleteClientAsync(id);
-            if (!result)
-                return NotFound(new { message = "Клиент не найден" });
+        return Ok(new { message = "Клиент архивирован" });
+    }
 
-            return NoContent();
-        }
+    [HttpPatch("{id}/restore")]
+    public async Task<ActionResult> RestoreClient(Guid id)
+    {
+        var result = await _clientService.RestoreClientAsync(id);
+        if (!result)
+            return NotFound(new { message = "Клиент не найден" });
+
+        return Ok(new { message = "Клиент восстановлен" });
+    }
+
+    [HttpGet("{id}/projects")]
+    public async Task<ActionResult<PagedResponse<ProjectResponseDto>>> GetClientProjects(
+        Guid id,
+        [FromQuery] ProjectFilterDto filter
+    )
+    {
+        filter.ClientId = id;
+        var projects = await _projectService.GetProjectsAsync(filter);
+        return Ok(projects);
     }
 }

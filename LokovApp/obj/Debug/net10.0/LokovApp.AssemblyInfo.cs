@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LokovApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+59f101de170369eba76b5249474e33b261f72d60")]
 [assembly: System.Reflection.AssemblyProductAttribute("LokovApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LokovApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

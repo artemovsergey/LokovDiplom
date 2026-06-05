@@ -3,154 +3,270 @@ using LokovApp.DTOs;
 using LokovApp.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace LokovApp.Services
+namespace LokovApp.Services;
+
+public interface IClientService
 {
-    public interface IClientService
+    Task<PagedResponse<ClientResponseDto>> GetClientsAsync(ClientFilterDto filter);
+    Task<ClientResponseDto?> GetClientByIdAsync(Guid id);
+    Task<ClientResponseDto> CreateClientAsync(CreateClientDto dto);
+    Task<ClientResponseDto?> UpdateClientAsync(Guid id, UpdateClientDto dto);
+    Task<bool> DeleteClientAsync(Guid id);
+    Task<bool> ArchiveClientAsync(Guid id);
+    Task<bool> RestoreClientAsync(Guid id);
+}
+
+public class ClientService : IClientService
+{
+    private readonly LokovAppContext _context;
+
+    public ClientService(LokovAppContext context)
     {
-        Task<List<ClientResponseDto>> GetAllClientsAsync(string? search, string? status);
-        Task<ClientResponseDto?> GetClientByIdAsync(int id);
-        Task<ClientResponseDto> CreateClientAsync(CreateClientDto dto);
-        Task<ClientResponseDto?> UpdateClientAsync(int id, UpdateClientDto dto);
-        Task<bool> DeleteClientAsync(int id);
+        _context = context;
     }
 
-    public class ClientService : IClientService
+    public async Task<PagedResponse<ClientResponseDto>> GetClientsAsync(ClientFilterDto filter)
     {
-        private readonly LokovAppContext _context;
+        var query = _context
+            .Clients.Include(c => c.Projects)
+            .ThenInclude(p => p.Payments)
+            .AsQueryable();
 
-        public ClientService(LokovAppContext context)
+        // Поиск
+        if (!string.IsNullOrWhiteSpace(filter.Search))
         {
-            _context = context;
+            var search = filter.Search.ToLower();
+            query = query.Where(c =>
+                c.FirstName.ToLower().Contains(search)
+                || c.LastName.ToLower().Contains(search)
+                || (c.Patronymic != null && c.Patronymic.ToLower().Contains(search))
+                || c.Phone.Contains(search)
+                || (c.Email != null && c.Email.ToLower().Contains(search))
+                || c.Address.ToLower().Contains(search)
+            );
         }
 
-        public async Task<List<ClientResponseDto>> GetAllClientsAsync(
-            string? search,
-            string? status
+        // Фильтр по статусу
+        if (
+            !string.IsNullOrWhiteSpace(filter.Status)
+            && Enum.TryParse<ClientStatus>(filter.Status, true, out var status)
         )
         {
-            var query = _context.Clients.AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                search = search.ToLower();
-                query = query.Where(c =>
-                    c.FirstName.ToLower().Contains(search)
-                    || c.LastName.ToLower().Contains(search)
-                    || c.Phone.Contains(search)
-                );
-            }
-
-            if (
-                !string.IsNullOrWhiteSpace(status)
-                && Enum.TryParse<ClientStatus>(status, true, out var clientStatus)
-            )
-            {
-                query = query.Where(c => c.Status == clientStatus);
-            }
-
-            return await query
-                .Select(c => new ClientResponseDto
-                {
-                    Id = c.Id,
-                    FirstName = c.FirstName,
-                    LastName = c.LastName,
-                    Patronymic = c.Patronymic,
-                    Phone = c.Phone,
-                    Email = c.Email,
-                    Address = c.Address,
-                    Status = c.Status.ToString(),
-                    ProjectsCount = c.Projects.Count,
-                    CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt,
-                })
-                .ToListAsync();
+            query = query.Where(c => c.Status == status);
         }
 
-        public async Task<ClientResponseDto?> GetClientByIdAsync(int id)
+        // Фильтр по источнику
+        if (
+            !string.IsNullOrWhiteSpace(filter.Source)
+            && Enum.TryParse<ClientSource>(filter.Source, true, out var source)
+        )
         {
-            return await _context
-                .Clients.Where(c => c.Id == id)
-                .Select(c => new ClientResponseDto
-                {
-                    Id = c.Id,
-                    FirstName = c.FirstName,
-                    LastName = c.LastName,
-                    Patronymic = c.Patronymic,
-                    Phone = c.Phone,
-                    Email = c.Email,
-                    Address = c.Address,
-                    Status = c.Status.ToString(),
-                    ProjectsCount = c.Projects.Count,
-                    CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt,
-                })
-                .FirstOrDefaultAsync();
+            query = query.Where(c => c.Source == source);
         }
 
-        public async Task<ClientResponseDto> CreateClientAsync(CreateClientDto dto)
+        // Фильтр по категории
+        if (
+            !string.IsNullOrWhiteSpace(filter.Category)
+            && Enum.TryParse<ClientCategory>(filter.Category, true, out var category)
+        )
         {
-            var client = new Client
-            {
-                FirstName = dto.FirstName,
-                LastName = dto.LastName,
-                Patronymic = dto.Patronymic,
-                Phone = dto.Phone,
-                Email = dto.Email,
-                Address = dto.Address,
-                CreatedAt = DateTime.UtcNow,
-            };
-
-            _context.Clients.Add(client);
-            await _context.SaveChangesAsync();
-
-            return new ClientResponseDto
-            {
-                Id = client.Id,
-                FirstName = client.FirstName,
-                LastName = client.LastName,
-                Patronymic = client.Patronymic,
-                Phone = client.Phone,
-                Email = client.Email,
-                Address = client.Address,
-                Status = client.Status.ToString(),
-                ProjectsCount = 0,
-                CreatedAt = client.CreatedAt,
-            };
+            query = query.Where(c => c.Category == category);
         }
 
-        public async Task<ClientResponseDto?> UpdateClientAsync(int id, UpdateClientDto dto)
+        // Фильтр по дате
+        if (filter.CreatedFrom.HasValue)
+            query = query.Where(c => c.CreatedAt >= filter.CreatedFrom.Value);
+        if (filter.CreatedTo.HasValue)
+            query = query.Where(c => c.CreatedAt <= filter.CreatedTo.Value);
+
+        // Сортировка
+        query = filter.SortBy?.ToLower() switch
         {
-            var client = await _context.Clients.FindAsync(id);
-            if (client == null)
-                return null;
+            "name" => filter.SortOrder == "desc"
+                ? query.OrderByDescending(c => c.LastName).ThenByDescending(c => c.FirstName)
+                : query.OrderBy(c => c.LastName).ThenBy(c => c.FirstName),
+            "createdat" => filter.SortOrder == "desc"
+                ? query.OrderByDescending(c => c.CreatedAt)
+                : query.OrderBy(c => c.CreatedAt),
+            "status" => filter.SortOrder == "desc"
+                ? query.OrderByDescending(c => c.Status)
+                : query.OrderBy(c => c.Status),
+            _ => query.OrderByDescending(c => c.CreatedAt),
+        };
 
-            client.FirstName = dto.FirstName;
-            client.LastName = dto.LastName;
-            client.Patronymic = dto.Patronymic;
-            client.Phone = dto.Phone;
-            client.Email = dto.Email;
-            client.Address = dto.Address;
-            client.UpdatedAt = DateTime.UtcNow;
+        var totalCount = await query.CountAsync();
 
-            if (Enum.TryParse<ClientStatus>(dto.Status, true, out var status))
+        var clients = await query
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        var items = clients
+            .Select(c => new ClientResponseDto
             {
-                client.Status = status;
-            }
+                Id = c.Id,
+                FirstName = c.FirstName,
+                LastName = c.LastName,
+                Patronymic = c.Patronymic,
+                FullName = c.FullName,
+                Phone = c.Phone,
+                AdditionalPhone = c.AdditionalPhone,
+                Email = c.Email,
+                Address = c.Address,
+                Source = c.Source.ToString(),
+                Status = c.Status.ToString(),
+                Category = c.Category.ToString(),
+                ProjectsCount = c.Projects.Count,
+                TotalPayments = c.Projects.Sum(p => p.Payments.Sum(pay => pay.Amount)),
+                Debt = c.Projects.Sum(p => p.EstimatedCost - p.Payments.Sum(pay => pay.Amount)),
+                CreatedAt = c.CreatedAt,
+                UpdatedAt = c.UpdatedAt,
+            })
+            .ToList();
 
-            await _context.SaveChangesAsync();
-
-            return await GetClientByIdAsync(id);
-        }
-
-        public async Task<bool> DeleteClientAsync(int id)
+        return new PagedResponse<ClientResponseDto>
         {
-            var client = await _context.Clients.FindAsync(id);
-            if (client == null)
-                return false;
+            Items = items,
+            TotalCount = totalCount,
+            Page = filter.Page,
+            PageSize = filter.PageSize,
+        };
+    }
 
-            _context.Clients.Remove(client);
-            await _context.SaveChangesAsync();
-            return true;
-        }
+    public async Task<ClientResponseDto?> GetClientByIdAsync(Guid id)
+    {
+        var client = await _context
+            .Clients.Include(c => c.Projects)
+            .ThenInclude(p => p.Payments)
+            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+
+        if (client == null)
+            return null;
+
+        return MapToResponseDto(client);
+    }
+
+    public async Task<ClientResponseDto> CreateClientAsync(CreateClientDto dto)
+    {
+        var client = new Client
+        {
+            Id = Guid.NewGuid(),
+            FirstName = dto.FirstName,
+            LastName = dto.LastName,
+            Patronymic = dto.Patronymic,
+            Phone = dto.Phone,
+            AdditionalPhone = dto.AdditionalPhone,
+            Email = dto.Email,
+            Address = dto.Address,
+            Source = Enum.TryParse<ClientSource>(dto.Source, true, out var source)
+                ? source
+                : ClientSource.Other,
+            Category = Enum.TryParse<ClientCategory>(dto.Category, true, out var category)
+                ? category
+                : ClientCategory.Individual,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        _context.Clients.Add(client);
+        await _context.SaveChangesAsync();
+
+        return MapToResponseDto(client);
+    }
+
+    public async Task<ClientResponseDto?> UpdateClientAsync(Guid id, UpdateClientDto dto)
+    {
+        var client = await _context
+            .Clients.Include(c => c.Projects)
+            .ThenInclude(p => p.Payments)
+            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
+
+        if (client == null)
+            return null;
+
+        client.FirstName = dto.FirstName;
+        client.LastName = dto.LastName;
+        client.Patronymic = dto.Patronymic;
+        client.Phone = dto.Phone;
+        client.AdditionalPhone = dto.AdditionalPhone;
+        client.Email = dto.Email;
+        client.Address = dto.Address;
+        client.UpdatedAt = DateTime.UtcNow;
+
+        if (Enum.TryParse<ClientSource>(dto.Source, true, out var source))
+            client.Source = source;
+        if (Enum.TryParse<ClientStatus>(dto.Status, true, out var status))
+            client.Status = status;
+        if (Enum.TryParse<ClientCategory>(dto.Category, true, out var category))
+            client.Category = category;
+
+        await _context.SaveChangesAsync();
+        return MapToResponseDto(client);
+    }
+
+    public async Task<bool> DeleteClientAsync(Guid id)
+    {
+        var client = await _context.Clients.FindAsync(id);
+        if (client == null)
+            return false;
+
+        client.IsDeleted = true;
+        client.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ArchiveClientAsync(Guid id)
+    {
+        var client = await _context.Clients.FindAsync(id);
+        if (client == null)
+            return false;
+
+        client.Status = ClientStatus.Archived;
+        client.ArchivedAt = DateTime.UtcNow;
+        client.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RestoreClientAsync(Guid id)
+    {
+        var client = await _context
+            .Clients.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(c => c.Id == id && c.IsDeleted);
+
+        if (client == null)
+            return false;
+
+        client.IsDeleted = false;
+        client.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    private static ClientResponseDto MapToResponseDto(Client client)
+    {
+        return new ClientResponseDto
+        {
+            Id = client.Id,
+            FirstName = client.FirstName,
+            LastName = client.LastName,
+            Patronymic = client.Patronymic,
+            FullName = client.FullName,
+            Phone = client.Phone,
+            AdditionalPhone = client.AdditionalPhone,
+            Email = client.Email,
+            Address = client.Address,
+            Source = client.Source.ToString(),
+            Status = client.Status.ToString(),
+            Category = client.Category.ToString(),
+            ProjectsCount = client.Projects?.Count ?? 0,
+            TotalPayments = client.Projects?.Sum(p => p.Payments?.Sum(pay => pay.Amount) ?? 0) ?? 0,
+            Debt =
+                client.Projects?.Sum(p =>
+                    p.EstimatedCost - (p.Payments?.Sum(pay => pay.Amount) ?? 0)
+                ) ?? 0,
+            CreatedAt = client.CreatedAt,
+            UpdatedAt = client.UpdatedAt,
+        };
     }
 }
