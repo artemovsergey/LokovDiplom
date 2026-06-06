@@ -140,8 +140,8 @@ public class UserService : IUserService
         if (user == null)
             return false;
 
-        // Вместо физического удаления, деактивируем
-        user.IsActive = false;
+        // Физическое удаление вместо деактивации
+        _context.Users.Remove(user);
         await _context.SaveChangesAsync();
         return true;
     }

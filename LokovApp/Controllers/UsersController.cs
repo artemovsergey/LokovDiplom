@@ -105,7 +105,7 @@ public class UsersController : ControllerBase
         if (!result)
             return NotFound(new { success = false, message = "Пользователь не найден" });
 
-        return Ok(new { success = true, message = "Пользователь деактивирован" });
+        return Ok(new { success = true, message = "Пользователь удален" });
     }
 
     /// <summary>

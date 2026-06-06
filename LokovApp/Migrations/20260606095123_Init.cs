@@ -343,6 +343,52 @@ namespace LokovApp.Migrations
                         principalColumn: "Id");
                 });
 
+            migrationBuilder.CreateTable(
+                name: "ProjectPhotos",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ProjectId = table.Column<Guid>(type: "uuid", nullable: false),
+                    OriginalFileName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    StoredFileName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    FilePath = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    ContentType = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    FileSize = table.Column<long>(type: "bigint", nullable: false),
+                    Category = table.Column<int>(type: "integer", nullable: false),
+                    SortOrder = table.Column<int>(type: "integer", nullable: false),
+                    Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    StageId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UploadedById = table.Column<Guid>(type: "uuid", nullable: true),
+                    ThumbnailFileName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    ThumbnailPath = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    Latitude = table.Column<double>(type: "double precision", nullable: true),
+                    Longitude = table.Column<double>(type: "double precision", nullable: true),
+                    TakenAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProjectPhotos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProjectPhotos_ProjectStages_StageId",
+                        column: x => x.StageId,
+                        principalTable: "ProjectStages",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ProjectPhotos_Projects_ProjectId",
+                        column: x => x.ProjectId,
+                        principalTable: "Projects",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ProjectPhotos_Users_UploadedById",
+                        column: x => x.UploadedById,
+                        principalTable: "Users",
+                        principalColumn: "Id");
+                });
+
             migrationBuilder.InsertData(
                 table: "Brigades",
                 columns: new[] { "Id", "CreatedAt", "ForemanName", "IsActive", "Name", "Phone", "Specialization", "WorkersCount" },
@@ -598,6 +644,26 @@ namespace LokovApp.Migrations
                 column: "ProjectId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ProjectPhotos_Category",
+                table: "ProjectPhotos",
+                column: "Category");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProjectPhotos_ProjectId",
+                table: "ProjectPhotos",
+                column: "ProjectId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProjectPhotos_StageId",
+                table: "ProjectPhotos",
+                column: "StageId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProjectPhotos_UploadedById",
+                table: "ProjectPhotos",
+                column: "UploadedById");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Projects_BrigadeId",
                 table: "Projects",
                 column: "BrigadeId");
@@ -673,16 +739,19 @@ namespace LokovApp.Migrations
                 name: "ProjectExpenses");
 
             migrationBuilder.DropTable(
-                name: "ProjectStages");
+                name: "ProjectPhotos");
 
             migrationBuilder.DropTable(
                 name: "Tasks");
 
             migrationBuilder.DropTable(
-                name: "Projects");
+                name: "ProjectStages");
 
             migrationBuilder.DropTable(
                 name: "Users");
+
+            migrationBuilder.DropTable(
+                name: "Projects");
 
             migrationBuilder.DropTable(
                 name: "Brigades");

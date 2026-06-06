@@ -4,8 +4,10 @@ using System.Threading.RateLimiting;
 using FluentValidation;
 using LokovApp.Data;
 using LokovApp.Services;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi;
 using Serilog;
 
@@ -117,7 +119,32 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 
+builder.Services.AddScoped<IPhotoService, PhotoService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
+
+// Настройка лимитов для загрузки файлов
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 105_000_000; // 105 MB
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 105_000_000; // 105 MB
+});
+
 var app = builder.Build();
+
+// Статические файлы (для доступа к загруженным фото)
+app.UseStaticFiles(
+    new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(
+            Path.Combine(builder.Environment.ContentRootPath, "uploads")
+        ),
+        RequestPath = "/uploads",
+    }
+);
 
 // Middleware pipeline
 if (app.Environment.IsDevelopment())
@@ -139,8 +166,7 @@ app.UseResponseCompression();
 app.UseRateLimiter();
 app.UseHttpsRedirection();
 app.UseCors("AllowReact");
-app.UseAuthentication();
-app.UseAuthorization();
+
 app.MapControllers();
 
 // Автоматическое применение миграций при запуске (Development)

@@ -20,6 +20,7 @@ public class LokovAppContext : DbContext
     public DbSet<Comment> Comments { get; set; }
     public DbSet<TaskItem> Tasks { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<ProjectPhoto> ProjectPhotos { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -66,6 +67,23 @@ public class LokovAppContext : DbContext
         modelBuilder.Entity<ClientInteraction>().HasQueryFilter(i => !i.IsDeleted);
         modelBuilder.Entity<Comment>().HasQueryFilter(c => !c.IsDeleted);
         modelBuilder.Entity<TaskItem>().HasQueryFilter(t => !t.IsDeleted);
+
+        // Добавить индексы для фотографий
+        modelBuilder.Entity<ProjectPhoto>().HasIndex(p => p.ProjectId);
+
+        modelBuilder.Entity<ProjectPhoto>().HasIndex(p => p.StageId);
+
+        modelBuilder.Entity<ProjectPhoto>().HasIndex(p => p.Category);
+
+        modelBuilder.Entity<ProjectPhoto>().HasQueryFilter(p => !p.IsDeleted);
+
+        // Добавить связь с этапом
+        modelBuilder
+            .Entity<ProjectPhoto>()
+            .HasOne(p => p.Stage)
+            .WithMany()
+            .HasForeignKey(p => p.StageId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         // SEED DATA - Все значения статические (hardcoded GUID и DateTime)
 
