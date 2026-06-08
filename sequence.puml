@@ -1,0 +1,56 @@
+@startuml
+actor "Пользователь" as User
+participant "React\n(ProjectForm)" as UI
+participant "API Client\n(Axios)" as API
+participant "ProjectsController" as Controller
+participant "ProjectService" as Service
+participant "DbContext" as DB
+database "PostgreSQL" as SQL
+
+User -> UI: Заполняет форму\nнажимает "Сохранить"
+activate UI
+
+UI -> API: POST /api/v1/projects
+activate API
+
+API -> Controller: HTTP-запрос
+activate Controller
+
+Controller -> Controller: Валидация DTO
+
+alt Данные невалидны
+    Controller --> API: 400 Bad Request
+    API --> UI: Ошибка валидации
+    UI --> User: Сообщение об ошибке
+else Данные валидны
+    Controller -> Service: Create(dto)
+    activate Service
+    
+    Service -> DB: Проверка существования клиента
+    DB --> Service: Результат
+    
+    alt Клиент не найден
+        Service --> Controller: null
+        Controller --> API: 404 Not Found
+        API --> UI: Клиент не найден
+        UI --> User: Сообщение об ошибке
+    else Клиент найден
+        Service -> Service: Создание сущности Project
+        Service -> DB: Add(project)
+        DB --> SQL: INSERT
+        SQL --> DB: OK
+        Service -> DB: SaveChangesAsync()
+        DB --> Service: Project с Id
+        
+        Service --> Controller: ProjectResponseDto
+        Controller --> API: 201 Created
+        API --> UI: Успешный ответ
+        UI --> User: "Проект создан"\nПеренаправление
+    end
+    deactivate Service
+end
+
+deactivate Controller
+deactivate API
+deactivate UI
+@enduml

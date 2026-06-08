@@ -1,0 +1,290 @@
+@startuml
+' Диаграмма классов CRM-системы "ЛоковCRM"
+' Для ИП Локов А. М.
+' Автор: Иванов Т.А.
+' Дата: 2026
+
+title Диаграмма классов - CRM-система «ЛоковCRM»
+
+' === Настройка стилей ===
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor white
+    BorderColor black
+    ArrowColor #333333
+}
+
+' === Перечисления (Enums) ===
+enum ClientStatus {
+    Potential : Потенциальный
+    Active : Активный
+    Inactive : Неактивный
+    Completed : Завершённый
+}
+
+enum ProjectType {
+    Roof : Крыша
+    Facade : Фасад
+    MajorRepair : Капитальный ремонт
+    Other : Другое
+}
+
+enum ProjectStatus {
+    Planned : Запланирован
+    InProgress : В работе
+    Completed : Завершён
+    Cancelled : Отменён
+}
+
+enum StageStatus {
+    Pending : Ожидает
+    InProgress : Выполняется
+    Completed : Выполнен
+    Skipped : Пропущен
+}
+
+enum PaymentType {
+    Prepayment : Предоплата
+    Interim : Промежуточный
+    Final : Окончательный
+    Additional : Дополнительный
+}
+
+enum UserRole {
+    Admin : Администратор
+    Manager : Менеджер
+    Prorab : Прораб
+    Accountant : Бухгалтер
+    Brigadier : Бригадир
+}
+
+' === Классы-сущности ===
+class Client {
+    - Id : int
+    - FirstName : string
+    - LastName : string
+    - Patronymic : string
+    - Phone : string
+    - Email : string
+    - Address : string
+    - Status : ClientStatus
+    - CreatedAt : DateTime
+    - UpdatedAt : DateTime
+    --
+    + GetFullName() : string
+    + Validate() : bool
+    + GetProjectsCount() : int
+    + GetLastProjectDate() : DateTime?
+}
+
+class Project {
+    - Id : int
+    - Name : string
+    - Description : string
+    - Type : ProjectType
+    - Budget : decimal
+    - StartDate : DateTime?
+    - EndDate : DateTime?
+    - Status : ProjectStatus
+    - ClientId : int
+    - CreatedAt : DateTime
+    - UpdatedAt : DateTime?
+    --
+    + CalculateProfit() : decimal
+    + IsCompleted() : bool
+    + GetPaidAmount() : decimal
+    + GetDebt() : decimal
+    + GetProgressPercent() : int
+}
+
+class ProjectStage {
+    - Id : int
+    - Name : string
+    - Order : int
+    - PlannedDays : int
+    - ActualDays : int
+    - Status : StageStatus
+    - CompletedAt : DateTime?
+    - CompletionPhoto : string
+    - ProjectId : int
+    --
+    + MarkAsCompleted(actualDays : int, photo : string) : void
+    + IsOverdue() : bool
+    + GetDeviationDays() : int
+}
+
+class Payment {
+    - Id : int
+    - Amount : decimal
+    - Type : PaymentType
+    - PaymentDate : DateTime
+    - Comment : string
+    - ProjectId : int
+    - CreatedAt : DateTime
+    --
+    + ValidateAmount() : bool
+}
+
+class Comment {
+    - Id : int
+    - Content : string
+    - ClientId : int
+    - CreatedBy : int
+    - CreatedAt : DateTime
+    --
+    + GetAuthorName() : string
+}
+
+class User {
+    - Id : int
+    - Username : string
+    - PasswordHash : string
+    - Email : string
+    - Role : UserRole
+    - IsActive : bool
+    - LastLogin : DateTime?
+    - CreatedAt : DateTime
+    --
+    + VerifyPassword(password : string) : bool
+    + IsAdmin() : bool
+    + HasPermission(requiredRole : UserRole) : bool
+}
+
+' === DTO (Data Transfer Objects) ===
+class ClientDto {
+    + Id : int
+    + FullName : string
+    + Phone : string
+    + Address : string
+    + Status : string
+    + ProjectsCount : int
+    + LastOrderDate : DateTime?
+}
+
+class CreateClientDto {
+    + FirstName : string
+    + LastName : string
+    + Patronymic : string?
+    + Phone : string
+    + Email : string?
+    + Address : string?
+}
+
+class ProjectDto {
+    + Id : int
+    + Name : string
+    + Type : string
+    + TypeDisplay : string
+    + Budget : decimal?
+    + Status : string
+    + ClientName : string
+    + CreatedAt : DateTime
+}
+
+class CreateProjectDto {
+    + ClientId : int
+    + Name : string
+    + Type : string
+    + Description : string?
+    + Budget : decimal?
+    + PlannedStartDate : DateTime?
+}
+
+class DashboardDataDto {
+    + TotalClients : int
+    + ActiveProjects : int
+    + MonthlyRevenue : decimal
+    + TotalDebt : decimal
+    + RevenueChartData : List<ChartPoint>
+    + ProjectsByStatus : List<StatusCount>
+}
+
+class AuthResponseDto {
+    + Token : string
+    + TokenType : string
+    + ExpiresAt : DateTime
+    + Username : string
+    + Role : string
+}
+
+' === Контроллеры API ===
+class ClientsController {
+    + GetAll(search : string, status : string, page : int, pageSize : int) : ActionResult
+    + GetById(id : int) : ActionResult
+    + Create(dto : CreateClientDto) : ActionResult
+    + Update(id : int, dto : UpdateClientDto) : ActionResult
+    + Delete(id : int) : ActionResult
+}
+
+class ProjectsController {
+    + GetAll(type : string, status : string, clientId : int, page : int, pageSize : int) : ActionResult
+    + GetById(id : int) : ActionResult
+    + Create(dto : CreateProjectDto) : ActionResult
+    + Update(id : int, dto : UpdateProjectDto) : ActionResult
+    + Delete(id : int) : ActionResult
+    + GetStages(projectId : int) : ActionResult
+    + UpdateStageStatus(projectId : int, stageId : int, dto : UpdateStageDto) : ActionResult
+}
+
+class ReportsController {
+    + GetDashboard(period : string) : ActionResult
+    + ExportProjectsToExcel(startDate : DateTime, endDate : DateTime, type : string) : IActionResult
+    + ExportClientsToExcel(status : string, fromDate : DateTime, toDate : DateTime) : IActionResult
+    + ExportProjectsToPdf(startDate : DateTime, endDate : DateTime, type : string) : IActionResult
+    + ExportFinancialToPdf(period : string) : IActionResult
+}
+
+class AuthController {
+    + Login(dto : LoginRequestDto) : ActionResult
+    + Refresh() : ActionResult
+    + Logout() : IActionResult
+}
+
+' === Сервисы ===
+interface IClientService {
+    + GetAllClientsAsync(search : string, status : string) : Task<List<ClientDto>>
+    + GetClientByIdAsync(id : int) : Task<ClientDetailsDto>
+    + CreateClientAsync(dto : CreateClientDto) : Task<ClientDto>
+    + UpdateClientAsync(id : int, dto : UpdateClientDto) : Task<ClientDto>
+    + DeleteClientAsync(id : int) : Task<bool>
+}
+
+interface IProjectService {
+    + GetAllProjectsAsync(type : string, status : string, clientId : int) : Task<List<ProjectDto>>
+    + GetProjectByIdAsync(id : int) : Task<ProjectDetailsDto>
+    + CreateProjectAsync(dto : CreateProjectDto) : Task<ProjectDto>
+    + UpdateProjectAsync(id : int, dto : UpdateProjectDto) : Task<ProjectDto>
+    + DeleteProjectAsync(id : int) : Task<bool>
+    + UpdateStageStatusAsync(projectId : int, stageId : int, dto : UpdateStageDto) : Task<bool>
+}
+
+' === Связи между сущностями ===
+Client "1" -- "0..*" Project : имеет
+Project "1" -- "0..*" ProjectStage : состоит из
+Project "1" -- "0..*" Payment : содержит платежи
+Client "1" -- "0..*" Comment : имеет комментарии
+
+' === Связи контроллеров с сервисами ===
+ClientsController --> IClientService : использует
+ProjectsController --> IProjectService : использует
+
+' === Наследование DTO ===
+ClientDto <|-- ClientDetailsDto : наследует
+
+' === Зависимости контроллеров от DTO ===
+ClientsController ..> CreateClientDto : использует
+ClientsController ..> ClientDto : использует
+ProjectsController ..> CreateProjectDto : использует
+ProjectsController ..> ProjectDto : использует
+ReportsController ..> DashboardDataDto : использует
+AuthController ..> AuthResponseDto : использует
+
+' === Связи с перечислениями ===
+Client --> ClientStatus : использует
+Project --> ProjectType : использует
+Project --> ProjectStatus : использует
+ProjectStage --> StageStatus : использует
+Payment --> PaymentType : использует
+User --> UserRole : использует
+
+@enduml

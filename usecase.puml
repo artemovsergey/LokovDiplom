@@ -1,0 +1,231 @@
+@startuml
+' Диаграмма классов CRM-системы "ЛоковCRM"
+' Сокращённая версия для дипломной работы
+' Автор: Иванов Т.А.
+' Дата: 2026
+
+title Диаграмма классов CRM-системы «ЛоковCRM» (сокращённая)
+
+' ===== Сущности (Entity) =====
+class Client {
+  + Id: int
+  + FirstName: string
+  + LastName: string
+  + Patronymic: string
+  + Phone: string
+  + Email: string
+  + Address: string
+  + Status: ClientStatus
+  + CreatedAt: DateTime
+  + UpdatedAt: DateTime
+  --
+  + GetFullName(): string
+}
+
+class Project {
+  + Id: int
+  + Name: string
+  + Description: string
+  + Type: ProjectType
+  + Budget: decimal
+  + StartDate: DateTime
+  + EndDate: DateTime
+  + Status: ProjectStatus
+  + ClientId: int
+  + CreatedAt: DateTime
+  --
+  + CalculateProfit(): decimal
+}
+
+class ProjectStage {
+  + Id: int
+  + Name: string
+  + Order: int
+  + PlannedDays: int
+  + ActualDays: int
+  + Status: StageStatus
+  + CompletedAt: DateTime
+  + CompletionPhoto: string
+  + ProjectId: int
+}
+
+class Payment {
+  + Id: int
+  + Amount: decimal
+  + Type: PaymentType
+  + PaymentDate: DateTime
+  + Comment: string
+  + ProjectId: int
+}
+
+class User {
+  + Id: int
+  + Username: string
+  + PasswordHash: string
+  + Email: string
+  + Role: UserRole
+  + IsActive: bool
+  + LastLogin: DateTime
+  --
+  + VerifyPassword(password: string): bool
+}
+
+class Comment {
+  + Id: int
+  + Content: string
+  + ClientId: int
+  + CreatedBy: int
+  + CreatedAt: DateTime
+}
+
+' ===== Перечисления (Enums) =====
+enum ClientStatus {
+  Potential
+  Active
+  Inactive
+  Completed
+}
+
+enum ProjectType {
+  Roof
+  Facade
+  MajorRepair
+  Other
+}
+
+enum ProjectStatus {
+  Planned
+  InProgress
+  Completed
+  Cancelled
+}
+
+enum UserRole {
+  Admin
+  Manager
+  Prorab
+  Accountant
+  Brigadier
+}
+
+enum PaymentType {
+  Prepayment
+  Interim
+  Final
+  Additional
+}
+
+' ===== DTO (Data Transfer Objects) =====
+class ClientResponseDto {
+  + Id: int
+  + FullName: string
+  + Phone: string
+  + Status: string
+  + ProjectsCount: int
+}
+
+class ProjectResponseDto {
+  + Id: int
+  + Name: string
+  + Type: string
+  + Budget: decimal
+  + Status: string
+  + ClientName: string
+}
+
+class CreateProjectRequestDto {
+  + ClientId: int
+  + Name: string
+  + Type: string
+  + Budget: decimal
+}
+
+' ===== Контроллеры =====
+class ClientsController {
+  + GetAll()
+  + GetById(id)
+  + Create(dto)
+  + Update(id, dto)
+  + Delete(id)
+}
+
+class ProjectsController {
+  + GetAll()
+  + GetById(id)
+  + Create(dto)
+  + Update(id, dto)
+  + Delete(id)
+  + GetStages(projectId)
+  + UpdateStageStatus(projectId, stageId)
+}
+
+class ReportsController {
+  + GetDashboard()
+  + ExportToExcel()
+  + ExportToPdf()
+}
+
+class AuthController {
+  + Login(loginDto)
+  + Logout()
+}
+
+' ===== Сервисы =====
+class IClientService {
+  <<interface>>
+  + GetAllAsync()
+  + GetByIdAsync()
+  + CreateAsync()
+  + UpdateAsync()
+  + DeleteAsync()
+}
+
+class ClientService {
+  - _context: DbContext
+  + GetAllAsync()
+  + GetByIdAsync()
+  + CreateAsync()
+  + UpdateAsync()
+  + DeleteAsync()
+}
+
+class IProjectService {
+  <<interface>>
+  + GetAllAsync()
+  + GetByIdAsync()
+  + CreateAsync()
+  + UpdateAsync()
+  + DeleteAsync()
+  + UpdateStageStatusAsync()
+}
+
+' ===== Связи между классами =====
+
+' Связи сущностей
+Client ||--o{ Project : "1 → *"
+Project ||--o{ ProjectStage : "1 → *"
+Project ||--o{ Payment : "1 → *"
+Client ||--o{ Comment : "1 → *"
+User ||--o{ Comment : "1 → *"
+
+' Реализация интерфейсов
+IClientService <|.. ClientService
+IProjectService <|.. ProjectService
+
+' Зависимости контроллеров от сервисов
+ClientsController ..> IClientService : uses
+ProjectsController ..> IProjectService : uses
+
+' Использование DTO
+ClientsController ..> ClientResponseDto : returns
+ProjectsController ..> ProjectResponseDto : returns
+ProjectsController ..> CreateProjectRequestDto : receives
+
+' Использование перечислений
+Client ..> ClientStatus
+Project ..> ProjectType
+Project ..> ProjectStatus
+User ..> UserRole
+Payment ..> PaymentType
+
+@enduml
