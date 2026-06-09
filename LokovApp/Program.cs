@@ -47,20 +47,7 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(
-        "AllowReact",
-        policy =>
-        {
-            policy
-                .WithOrigins("http://localhost:5173", "http://localhost:3000")
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials();
-        }
-    );
-});
+builder.Services.AddCors();
 
 // Controllers
 builder
@@ -164,8 +151,7 @@ else
 app.UseSerilogRequestLogging();
 app.UseResponseCompression();
 app.UseRateLimiter();
-app.UseHttpsRedirection();
-app.UseCors("AllowReact");
+app.UseCors(o => o.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.MapControllers();
 

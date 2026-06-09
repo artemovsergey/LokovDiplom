@@ -48,6 +48,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({ projectId, onClose, on
                 category,
                 description: description || undefined
             });
+            console.log(result);
             setProgress(100);
             onSuccess();
         } catch (err: any) {

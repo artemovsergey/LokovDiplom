@@ -1,0 +1,70 @@
+networks:
+  home-network:
+    driver: bridge
+
+volumes:
+    postgres_data:
+    uploads_data:
+
+services:
+  nginx:
+    container_name: ContainerNginx
+    build: 
+      context: .
+      dockerfile: loadbalancer/Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    links:
+      - api
+      - react
+    depends_on:
+      - db
+      - api
+      - react
+    networks:
+      - home-network 
+  react:
+    container_name: ContainerReact
+    build:
+      context: ./lokovapp.react
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+    ports:
+      - 3001:80 
+    networks:
+      - home-network   
+  api:
+    container_name: ContainerAPI
+    image: lokovapp
+    build:
+      context: .
+      dockerfile: LokovApp/Dockerfile
+    ports:
+      - 5001:5000
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:5000
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=LokovAppDatabase;Username=postgres;Password=root
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      - db
+    networks:
+      - home-network
+  db:
+    container_name: ContainerPostgreSQL
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: LokovAppDatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - home-network    
+   

@@ -29,6 +29,7 @@ export const ProjectEditPage: React.FC = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [originalBrigadeId, setOriginalBrigadeId] = useState<string>('');
 
+    console.log(originalBrigadeId);
     useEffect(() => {
         if (id) {
             loadProject(id);
