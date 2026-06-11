@@ -4,7 +4,7 @@ networks:
 
 volumes:
     postgres_data:
-    uploads_data:
+    # uploads_data:
 
 services:
   nginx:
@@ -49,7 +49,7 @@ services:
       - ASPNETCORE_URLS=http://0.0.0.0:5000
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=LokovAppDatabase;Username=postgres;Password=root
     volumes:
-      - uploads_data:/app/uploads
+      - ./uploads:/app/uploads   # ← bind mount (точка слеш)
     depends_on:
       - db
     networks:

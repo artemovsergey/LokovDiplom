@@ -1,10 +1,14 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
-# EXPOSE 5001
 
-# ENV ASPNETCORE_URLS=http://+:5001
+# Создаем папку uploads с полными правами
+# 777 = чтение/запись/выполнение для всех
+RUN mkdir -p /app/uploads && chmod 777 /app/uploads
 
-USER app
+EXPOSE 5000
+ENV ASPNETCORE_URLS=http://0.0.0.0:5000
+ENV ASPNETCORE_ENVIRONMENT=Development
+
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG configuration=Release
 WORKDIR /src
@@ -21,4 +25,9 @@ RUN dotnet publish "LokovApp.csproj" -c $configuration -o /app/publish /p:UseApp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# Финальное создание папки с правами
+RUN mkdir -p /app/uploads && chmod 777 /app/uploads
+
+USER app
 ENTRYPOINT ["dotnet", "LokovApp.dll"]
